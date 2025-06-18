@@ -10,6 +10,11 @@ import (
 )
 
 var ctx = context.Background()
+var rdb = redis.NewClient(&redis.Options{
+	Addr: "localhost:6379",
+})
+
+const DLQStream = "tasks:dlq"
 
 type RedisQueue struct {
 	Client *redis.Client
@@ -57,4 +62,19 @@ func (rq *RedisQueue) ReadTask() (*model.Task, string, error) {
 
 func (rq *RedisQueue) Ack(id string) {
 	rq.Client.XAck(ctx, rq.Stream, rq.Group, id)
+}
+
+func SendToDLQ(task model.Task) error {
+	payload, err := json.Marshal(task)
+	if err != nil {
+		return err
+	}
+
+	_, err = rdb.XAdd(ctx, &redis.XAddArgs{
+		Stream: DLQStream,
+		Values: map[string]interface{}{
+			"data": payload,
+		},
+	}).Result()
+	return err
 }
