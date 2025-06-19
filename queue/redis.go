@@ -79,7 +79,6 @@ func SendToDLQ(task model.Task) error {
 	return err
 }
 
-// Called once per task (first submission)
 func StoreTaskMetadata(client *redis.Client, task model.Task, status string) {
 	key := "task:" + task.ID
 	now := time.Now().Unix()
@@ -97,7 +96,6 @@ func StoreTaskMetadata(client *redis.Client, task model.Task, status string) {
 	client.HSet(ctx, key, data)
 }
 
-// Called to update status & retry count
 func UpdateTaskStatus(client *redis.Client, taskID string, status string, retries int) {
 	key := "task:" + taskID
 	client.HSet(ctx, key, map[string]interface{}{
