@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mrinalgaur2005/distributed-task-scheduler/model"
+	"github.com/mrinalgaur2005/distributed-task-scheduler/queue"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -53,7 +54,9 @@ func ProduceTasks(n int) {
 			fmt.Printf("Failed to push task %s to Redis: %v\n", task.ID, err)
 		} else {
 			fmt.Printf("Task pushed to Redis with Stream ID: %s\n", res)
+			queue.StoreTaskMetadata(rdb, task, "queued") // Track metadata
 		}
+
 		time.Sleep(200 * time.Millisecond)
 	}
 	fmt.Println("All tasks dispatched.")

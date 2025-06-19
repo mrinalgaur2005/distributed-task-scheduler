@@ -53,7 +53,19 @@ func (sw *StreamWorker) Start() {
 
 		for _, stream := range streams {
 			for _, msg := range stream.Messages {
-				raw := msg.Values["data"].(string)
+				rawVal, ok := msg.Values["data"]
+				if !ok {
+					log.Printf("[%s] Missing 'data' in message", sw.ID)
+					sw.Redis.XAck(ctx, sw.Stream, sw.Group, msg.ID)
+					continue
+				}
+
+				raw, ok := rawVal.(string)
+				if !ok {
+					log.Printf("[%s] 'data' is not a string", sw.ID)
+					sw.Redis.XAck(ctx, sw.Stream, sw.Group, msg.ID)
+					continue
+				}
 				var task model.Task
 				if err := json.Unmarshal([]byte(raw), &task); err != nil {
 					log.Printf("[%s] Failed to unmarshal task: %v", sw.ID, err)
@@ -61,14 +73,18 @@ func (sw *StreamWorker) Start() {
 				}
 
 				log.Printf("[%s] Processing task %s (%s)", sw.ID, task.ID, task.Type)
+				queue.UpdateTaskStatus(sw.Redis, task.ID, "processing", task.RetryCount)
+
 				if err := processTask(task); err != nil {
 					task.RetryCount++
 
 					if task.RetryCount > MaxRetries {
 						log.Printf("[%s] Task %s failed after max retries. Sending to DLQ.", sw.ID, task.ID)
 						queue.SendToDLQ(task)
+						queue.UpdateTaskStatus(sw.Redis, task.ID, "dlq", task.RetryCount)
 					} else {
 						log.Printf("[%s] Retrying task %s (Attempt %d)", sw.ID, task.ID, task.RetryCount)
+						queue.UpdateTaskStatus(sw.Redis, task.ID, "retrying", task.RetryCount)
 						updated, _ := json.Marshal(task)
 						sw.Redis.XAdd(ctx, &redis.XAddArgs{
 							Stream: sw.Stream,
@@ -79,6 +95,7 @@ func (sw *StreamWorker) Start() {
 					}
 				} else {
 					log.Printf("[%s] Completed task %s", sw.ID, task.ID)
+					queue.UpdateTaskStatus(sw.Redis, task.ID, "completed", task.RetryCount)
 				}
 				sw.Redis.XAck(ctx, sw.Stream, sw.Group, msg.ID)
 			}
