@@ -157,9 +157,9 @@ func FormatTaskMetadata(data map[string]string) map[string]interface{} {
 	description := ""
 
 	if data["type"] == "EMAIL" {
-		from := "unknown"
-		to := "unknown"
-		description = fmt.Sprintf("EMAIL from '%s' to '%s'", from, to)
+		to := data["payload.to"]
+		subject := data["payload.subject"]
+		description = fmt.Sprintf("EMAIL to %s about '%s'", to, subject)
 	}
 
 	return map[string]interface{}{

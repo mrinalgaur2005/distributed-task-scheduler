@@ -5,5 +5,5 @@ type Task struct {
 	Type       string                 `json:"type"`
 	Priority   int                    `json:"priority"`
 	Payload    map[string]interface{} `json:"payload"`
-	RetryCount int                    `json:"retry_count`
+	RetryCount int                    `json:"retry_count"`
 }
